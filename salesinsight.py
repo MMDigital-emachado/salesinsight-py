@@ -407,3 +407,62 @@ def visualizar(df, metricas):
     print("\n4 figuras exportadas em outputs/graficos/.")
 
 
+# ---------------------------------------------------------------- RF09
+def processar_coluna(df, coluna, funcao_transformacao, nome_saida=None):
+    """
+    Aplica uma função a uma coluna e devolve o DataFrame.
+    Serve para mostrar função Passando função como argumento.
+    """
+    nome_saida = nome_saida or f"{coluna}_transformado"
+    df[nome_saida] = df[coluna].apply(funcao_transformacao)
+    return df
+
+
+class AnalisadorDeVendas:
+    """Guarda o estado do fluxo e vai chamando as funções acima na ordem."""
+
+    def __init__(self, caminho_arquivo):
+        self.caminho_arquivo = caminho_arquivo
+        self.df_bruto = None
+        self.df_limpo = None
+        self.metricas = {}
+        self.clientes = None
+        self.estatisticas = None
+        self.relatorio_limpeza = {}
+
+    def carregar(self):
+        self.df_bruto = pd.read_csv(self.caminho_arquivo)
+        print(f"[Analisador] {len(self.df_bruto)} registros lidos.")
+
+    def limpar(self):
+        self.df_limpo, self.relatorio_limpeza = limpar_dados(self.df_bruto.copy())
+
+    def transformar(self):
+        self.df_limpo = criar_colunas_derivadas(self.df_limpo)
+        # as mesmas funções de ordem superior, com lambdas diferentes
+        self.df_limpo = processar_coluna(
+            self.df_limpo, "receita_total",
+            lambda x: round(x / 1000, 2), nome_saida="receita_em_milhares")
+        self.df_limpo = processar_coluna(
+            self.df_limpo, "quantidade",
+            lambda q: "Alto Volume" if q > 5 else "Baixo Volume",
+            nome_saida="perfil_volume")
+
+    def analisar(self):
+        self.metricas = calcular_metricas(self.df_limpo)
+        self.clientes = segmentar_clientes(self.df_limpo)
+        self.estatisticas = calcular_estatisticas_numpy(self.df_limpo)
+
+    def visualizar(self):
+        visualizar(self.df_limpo, self.metricas)
+
+    def resumo(self):
+        print("\n=== RESUMO EXECUTIVO ===")
+        print(f"Registros processados: {self.relatorio_limpeza['registros_finais']}")
+        print(f"Clientes distintos: {len(self.clientes)}")
+        print(f"Receita total: R$ {self.estatisticas['soma_receitas']:,.2f}")
+        maior = self.metricas["por_regiao"].nlargest(1, "ticket_medio")
+        print(f"Melhor ticket médio: {maior['regiao'].iloc[0]} "
+              f"(R$ {maior['ticket_medio'].iloc[0]:,.2f})")
+
+
