@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# saidas geradas pelo script — nao vao no repositorio
+vendas.csv
+outputs/
