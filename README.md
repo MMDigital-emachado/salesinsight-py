@@ -106,6 +106,14 @@ branch (`feat/leitura-limpeza`, `feat/analise-metricas`,
 `feat/visualizacoes`, `feat/classe-analisador`). As mensagens de commit
 seguem o padrão de conventional commits.
 
+Repositório: https://github.com/MMDigital-emachado/salesinsight-py
+
+## Vídeo de demonstração
+
+O vídeo de até 5 minutos foi dispensado por acordo com a coordenação
+do curso (Andrezza Finco, Técnico Pedagógica), que liberou a entrega do
+mini-projeto sem esse requisito.
+
 ## Ferramentas
 
 - Python 3.10+
