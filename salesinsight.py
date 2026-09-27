@@ -274,3 +274,38 @@ def segmentar_clientes(df):
     return gasto
 
 
+# ---------------------------------------------------------------- RF07
+def calcular_estatisticas_numpy(df):
+    """
+    Opera direto sobre o array de receita_total, sem laço for em cima dele.
+    Inclui o detalhe do ddof: np.std() usa ddof=0 e pandas .std() usa ddof=1,
+    então os dois números não batem na última casa e isso é esperado.
+    """
+    receitas = df["receita_total"].to_numpy()
+
+    media = np.mean(receitas)
+    acima_da_media = receitas[receitas > media]      # filtragem booleana
+    # broadcasting: subtrai o menor e divide pela amplitude, tudo de uma vez
+    receitas_norm = (receitas - receitas.min()) / (receitas.max() - receitas.min())
+
+    estatisticas = {
+        "media": media,
+        "mediana": np.median(receitas),
+        "desvio_padrao": np.std(receitas),
+        "soma_receitas": np.sum(receitas),
+        "minimo": np.min(receitas),
+        "maximo": np.max(receitas),
+        "vendas_acima_da_media": int(acima_da_media.size),
+        "normalizado_min": float(receitas_norm.min()),
+        "normalizado_max": float(receitas_norm.max()),
+    }
+
+    print("\n=== ESTATÍSTICAS COM NUMPY ===")
+    for chave, valor in estatisticas.items():
+        if isinstance(valor, float):
+            print(f"  {chave}: {valor:.2f}")
+        else:
+            print(f"  {chave}: {valor}")
+    return estatisticas
+
+
