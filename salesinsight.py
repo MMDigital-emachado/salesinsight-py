@@ -208,3 +208,49 @@ def criar_colunas_derivadas(df):
     return df
 
 
+# ---------------------------------------------------------------- RF05
+def calcular_metricas(df):
+    """Agrega o dataset por mês, produto, categoria e região."""
+    por_mes = (df.groupby("mes")
+                 .agg(receita_total=("receita_total", "sum"),
+                      quantidade=("quantidade", "sum"),
+                      n_vendas=("id_venda", "count"))
+                 .reset_index()
+                 .sort_values("mes"))
+
+    top_produtos = (df.groupby("produto")
+                      .agg(receita_total=("receita_total", "sum"))
+                      .reset_index()
+                      .sort_values("receita_total", ascending=False)
+                      .head(5))
+
+    por_categoria = (df.groupby("categoria")
+                       .agg(receita_total=("receita_total", "sum"))
+                       .reset_index()
+                       .sort_values("receita_total", ascending=False))
+
+    por_regiao = (df.groupby("regiao")
+                    .agg(receita_total=("receita_total", "sum"),
+                         n_vendas=("id_venda", "count"))
+                    .reset_index())
+    por_regiao["ticket_medio"] = (por_regiao["receita_total"]
+                                  / por_regiao["n_vendas"])
+
+    metricas = {
+        "por_mes": por_mes,
+        "top_produtos": top_produtos,
+        "por_categoria": por_categoria,
+        "por_regiao": por_regiao,
+    }
+
+    print("\n=== POR MÊS ===")
+    print(por_mes.to_string(index=False))
+    print("\n=== TOP PRODUTOS ===")
+    print(top_produtos.to_string(index=False))
+    print("\n=== POR CATEGORIA ===")
+    print(por_categoria.to_string(index=False))
+    print("\n=== POR REGIÃO ===")
+    print(por_regiao.to_string(index=False))
+    return metricas
+
+
