@@ -466,3 +466,49 @@ class AnalisadorDeVendas:
               f"(R$ {maior['ticket_medio'].iloc[0]:,.2f})")
 
 
+# ---------------------------------------------------------------- RF10
+def exportar_resultados(analisador):
+    """Grava as métricas em CSV, as estatísticas em JSON e relê o JSON."""
+    os.makedirs("outputs", exist_ok=True)
+
+    analisador.metricas["por_mes"].to_csv(
+        "outputs/metricas_por_mes.csv", index=False, encoding="utf-8-sig")
+    analisador.clientes.to_csv(
+        "outputs/segmentacao_clientes.csv", index=False, encoding="utf-8-sig")
+
+    caminho = "outputs/estatisticas_gerais.json"
+    with open(caminho, "w", encoding="utf-8") as f:
+        json.dump(analisador.estatisticas, f, indent=4, ensure_ascii=False)
+
+    with open(caminho, "r", encoding="utf-8") as f:   # confere se gravou certo
+        conferencia = json.load(f)
+    print(f"\nJSON gravado e lido de volta: {conferencia}")
+
+
+# ---------------------------------------------------------------- RF11
+def main():
+    print("=" * 60)
+    print("   SALESINSIGHT PY — análise de dados de vendas")
+    print("=" * 60)
+
+    if not os.path.exists("vendas.csv"):
+        gerar_dataset_vendas().to_csv("vendas.csv", index=False)
+        print("(vendas.csv gerado nesta execução)")
+
+    # a limpeza vem antes de tudo: agregar ou grafico com data quebrada
+    # suja o resultado, então nao dá para pular essa etapa
+    analisador = AnalisadorDeVendas("vendas.csv")
+    analisador.carregar()
+    inspecionar_dados(analisador.df_bruto)
+    analisador.limpar()
+    analisador.transformar()
+    analisador.analisar()
+    analisador.visualizar()
+    exportar_resultados(analisador)
+    analisador.resumo()
+
+    print("\n[FIM] fluxo completo rodou sem erro.")
+
+
+if __name__ == "__main__":
+    main()
