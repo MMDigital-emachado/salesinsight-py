@@ -6,3 +6,6 @@ __pycache__/
 # saidas geradas pelo script — nao vao no repositorio
 vendas.csv
 outputs/
+
+# script auxiliar de montagem do historico
+_git_history.py
