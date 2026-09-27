@@ -44,6 +44,52 @@ PADRAO_CLIENTE = re.compile(r"^Cliente_\d{3}$")
 SO_DIGITOS = re.compile(r"\D+")
 
 
+# -*- coding: utf-8 -*-
+"""
+SalesInsight PY — análise e visualização de dados de vendas
+Mini-Projeto Avaliativo · Módulo 01 · Semana 08
+
+O script inteiro roda em um único main(): gera o vendas.csv se ele ainda
+não existir, passa pelas etapas de limpeza, transformação, agregação e
+visualização, e deixa tudo exportado em outputs/.
+
+Escopo: só o que caiu nas semanas 01 a 08. Não tem modelo preditivo aqui.
+"""
+
+import os
+import re
+import json
+import random
+from datetime import datetime, timedelta
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# Configuração visual. Escolhi uma paleta quente de propósito, porque as
+# cores padrão do matplotlib (aquele azul/verde/laranja de sempre) ficavam
+# parecendo exemplo de biblioteca.
+sns.set_theme(style="whitegrid")
+plt.rcParams["figure.figsize"] = (12, 6)
+plt.rcParams["axes.titlesize"] = 14
+plt.rcParams["axes.labelsize"] = 11
+plt.rcParams["axes.edgecolor"] = "#9E9E9E"
+
+AZUL = "#1D3557"
+VERMELHO = "#E63946"
+AMARELO = "#E9C46A"
+VERDE = "#2A9D8F"
+PALETA = ["#1D3557", "#E63946", "#E9C46A", "#2A9D8F", "#6D597A"]
+
+# Nomes de cliente chegam com varias grafias diferentes no dataset sujo
+# ("Cliente_007", "cliente#007", "CLIENTE-007", "  Cliente_007!!").
+# Estes dois padroes ficam compilados aqui porque sao usados em varios pontos.
+PADRAO_CLIENTE = re.compile(r"^Cliente_\d{3}$")
+SO_DIGITOS = re.compile(r"\D+")
+
+
 # ---------------------------------------------------------------- RF01
 def gerar_dataset_vendas(n_registros=200, seed=42):
     """
@@ -115,5 +161,69 @@ def inspecionar_dados(df):
     print(f"\nTipos de dados:\n{df.dtypes}")
     print(f"\nValores nulos por coluna:\n{df.isnull().sum()}")
     print(f"\nPrimeiros registros:\n{df.head()}")
+
+
+# ---------------------------------------------------------------- RF03
+def normalizar_cliente(nome):
+    """
+    Deixa todo nome de cliente no formato Cliente_NNN.
+
+    Em vez de tentar apagar os caracteres esquisitos um a um, eu pego só
+    os dígitos e remonto o nome. Funciona para as quatro variações que o
+    gerador produz e evita que o mesmo cliente acabe entrando duas vezes
+    na segmentação (ex.: "cliente#016" viraria "CLIENTE016" e contaria
+    separado do "Cliente_016").
+    """
+    digitos = SO_DIGITOS.sub("", str(nome))
+    if digitos:
+        return f"Cliente_{int(digitos):03d}"
+    return str(nome).strip()
+
+
+def limpar_dados(df):
+    """
+    Trata o dataset e devolve (df_limpo, relatorio).
+
+    O relatorio guarda quantas linhas entraram, quantas saíram em cada
+    etapa e quantas sobraram, para dar print no console.
+    """
+    inicial = len(df)
+    removidos = {}
+
+    # espaço sobrando nas colunas de texto
+    for col in ["cliente", "produto", "categoria", "regiao"]:
+        df[col] = df[col].astype(str).str.strip()
+
+    # data: o que não converter vira NaT e sai na hora
+    df["data_venda"] = pd.to_datetime(df["data_venda"], errors="coerce")
+    antes = len(df)
+    df = df.dropna(subset=["data_venda"])
+    removidos["datas invalidas"] = antes - len(df)
+
+    # sem quantidade ou preço não dá para calcular receita
+    antes = len(df)
+    df = df.dropna(subset=["quantidade", "preco_unitario"])
+    removidos["nulos em quantidade/preco"] = antes - len(df)
+
+    df["quantidade"] = df["quantidade"].astype(int)
+    df["preco_unitario"] = df["preco_unitario"].astype(float)
+
+    # nomes de cliente fora do padrao são normalizados, não descartados
+    antes = int((~df["cliente"].str.match(PADRAO_CLIENTE)).sum())
+    df["cliente"] = df["cliente"].apply(normalizar_cliente)
+    removidos["nomes de cliente normalizados"] = antes
+
+    relatorio = {
+        "registros_iniciais": inicial,
+        "ajustes na limpeza": removidos,
+        "registros_finais": len(df),
+    }
+
+    print("\n=== RELATÓRIO DE LIMPEZA ===")
+    print(f"Registros iniciais: {inicial}")
+    for motivo, qtd in removidos.items():
+        print(f"  {motivo}: {qtd}")
+    print(f"Registros finais: {len(df)}")
+    return df, relatorio
 
 
