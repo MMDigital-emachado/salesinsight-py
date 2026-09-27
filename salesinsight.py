@@ -44,52 +44,6 @@ PADRAO_CLIENTE = re.compile(r"^Cliente_\d{3}$")
 SO_DIGITOS = re.compile(r"\D+")
 
 
-# -*- coding: utf-8 -*-
-"""
-SalesInsight PY — análise e visualização de dados de vendas
-Mini-Projeto Avaliativo · Módulo 01 · Semana 08
-
-O script inteiro roda em um único main(): gera o vendas.csv se ele ainda
-não existir, passa pelas etapas de limpeza, transformação, agregação e
-visualização, e deixa tudo exportado em outputs/.
-
-Escopo: só o que caiu nas semanas 01 a 08. Não tem modelo preditivo aqui.
-"""
-
-import os
-import re
-import json
-import random
-from datetime import datetime, timedelta
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-
-# Configuração visual. Escolhi uma paleta quente de propósito, porque as
-# cores padrão do matplotlib (aquele azul/verde/laranja de sempre) ficavam
-# parecendo exemplo de biblioteca.
-sns.set_theme(style="whitegrid")
-plt.rcParams["figure.figsize"] = (12, 6)
-plt.rcParams["axes.titlesize"] = 14
-plt.rcParams["axes.labelsize"] = 11
-plt.rcParams["axes.edgecolor"] = "#9E9E9E"
-
-AZUL = "#1D3557"
-VERMELHO = "#E63946"
-AMARELO = "#E9C46A"
-VERDE = "#2A9D8F"
-PALETA = ["#1D3557", "#E63946", "#E9C46A", "#2A9D8F", "#6D597A"]
-
-# Nomes de cliente chegam com varias grafias diferentes no dataset sujo
-# ("Cliente_007", "cliente#007", "CLIENTE-007", "  Cliente_007!!").
-# Estes dois padroes ficam compilados aqui porque sao usados em varios pontos.
-PADRAO_CLIENTE = re.compile(r"^Cliente_\d{3}$")
-SO_DIGITOS = re.compile(r"\D+")
-
-
 # ---------------------------------------------------------------- RF01
 def gerar_dataset_vendas(n_registros=200, seed=42):
     """
@@ -225,5 +179,133 @@ def limpar_dados(df):
         print(f"  {motivo}: {qtd}")
     print(f"Registros finais: {len(df)}")
     return df, relatorio
+
+
+# ---------------------------------------------------------------- RF04
+def criar_colunas_derivadas(df):
+    """Cria receita, mês/trimestre/ano e a faixa de receita do item."""
+    df["receita_total"] = df["quantidade"] * df["preco_unitario"]
+    df["mes"] = df["data_venda"].dt.month
+    df["trimestre"] = "Q" + df["data_venda"].dt.quarter.astype(str)
+    df["ano"] = df["data_venda"].dt.year
+    df["mes_nome"] = df["mes"].map({
+        1: "Janeiro", 2: "Fevereiro", 3: "Marco", 4: "Abril",
+        5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+        9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro",
+    })
+
+    # np.select em vez de laço com if: resolve as três faixas de uma vez,
+    # já que são condições vetoriais, não um caso por linha
+    condicoes = [
+        df["receita_total"] < 500,
+        (df["receita_total"] >= 500) & (df["receita_total"] < 5000),
+        df["receita_total"] >= 5000,
+    ]
+    df["faixa_receita_item"] = np.select(
+        condicoes, ["Baixo Valor", "Medio Valor", "Alto Valor"],
+        default="Nao Classificado",
+    )
+    return df
+
+
+# ---------------------------------------------------------------- RF05
+def calcular_metricas(df):
+    """Agrega o dataset por mês, produto, categoria e região."""
+    por_mes = (df.groupby("mes")
+                 .agg(receita_total=("receita_total", "sum"),
+                      quantidade=("quantidade", "sum"),
+                      n_vendas=("id_venda", "count"))
+                 .reset_index()
+                 .sort_values("mes"))
+
+    top_produtos = (df.groupby("produto")
+                      .agg(receita_total=("receita_total", "sum"))
+                      .reset_index()
+                      .sort_values("receita_total", ascending=False)
+                      .head(5))
+
+    por_categoria = (df.groupby("categoria")
+                       .agg(receita_total=("receita_total", "sum"))
+                       .reset_index()
+                       .sort_values("receita_total", ascending=False))
+
+    por_regiao = (df.groupby("regiao")
+                    .agg(receita_total=("receita_total", "sum"),
+                         n_vendas=("id_venda", "count"))
+                    .reset_index())
+    por_regiao["ticket_medio"] = (por_regiao["receita_total"]
+                                  / por_regiao["n_vendas"])
+
+    metricas = {
+        "por_mes": por_mes,
+        "top_produtos": top_produtos,
+        "por_categoria": por_categoria,
+        "por_regiao": por_regiao,
+    }
+
+    print("\n=== POR MÊS ===")
+    print(por_mes.to_string(index=False))
+    print("\n=== TOP PRODUTOS ===")
+    print(top_produtos.to_string(index=False))
+    print("\n=== POR CATEGORIA ===")
+    print(por_categoria.to_string(index=False))
+    print("\n=== POR REGIÃO ===")
+    print(por_regiao.to_string(index=False))
+    return metricas
+
+
+# ---------------------------------------------------------------- RF06
+def segmentar_clientes(df):
+    """Soma o gasto de cada cliente e classifica em Bronze, Prata ou Ouro."""
+    gasto = (df.groupby("cliente")["receita_total"]
+               .sum()
+               .reset_index()
+               .rename(columns={"receita_total": "total_gasto"}))
+
+    gasto["segmento"] = gasto["total_gasto"].apply(
+        lambda v: "Bronze" if v < 5000 else ("Prata" if v <= 15000 else "Ouro")
+    )
+    gasto = gasto.sort_values("total_gasto", ascending=False)
+
+    print("\n=== TOP 10 CLIENTES ===")
+    print(gasto.head(10).to_string(index=False))
+    print("\n=== DISTRIBUIÇÃO POR SEGMENTO ===")
+    print(gasto["segmento"].value_counts().to_string())
+    return gasto
+
+
+# ---------------------------------------------------------------- RF07
+def calcular_estatisticas_numpy(df):
+    """
+    Opera direto sobre o array de receita_total, sem laço for em cima dele.
+    Inclui o detalhe do ddof: np.std() usa ddof=0 e pandas .std() usa ddof=1,
+    então os dois números não batem na última casa e isso é esperado.
+    """
+    receitas = df["receita_total"].to_numpy()
+
+    media = np.mean(receitas)
+    acima_da_media = receitas[receitas > media]      # filtragem booleana
+    # broadcasting: subtrai o menor e divide pela amplitude, tudo de uma vez
+    receitas_norm = (receitas - receitas.min()) / (receitas.max() - receitas.min())
+
+    estatisticas = {
+        "media": media,
+        "mediana": np.median(receitas),
+        "desvio_padrao": np.std(receitas),
+        "soma_receitas": np.sum(receitas),
+        "minimo": np.min(receitas),
+        "maximo": np.max(receitas),
+        "vendas_acima_da_media": int(acima_da_media.size),
+        "normalizado_min": float(receitas_norm.min()),
+        "normalizado_max": float(receitas_norm.max()),
+    }
+
+    print("\n=== ESTATÍSTICAS COM NUMPY ===")
+    for chave, valor in estatisticas.items():
+        if isinstance(valor, float):
+            print(f"  {chave}: {valor:.2f}")
+        else:
+            print(f"  {chave}: {valor}")
+    return estatisticas
 
 
