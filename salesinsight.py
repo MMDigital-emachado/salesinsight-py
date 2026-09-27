@@ -309,3 +309,101 @@ def calcular_estatisticas_numpy(df):
     return estatisticas
 
 
+# ---------------------------------------------------------------- RF08
+def grafico_receita_por_mes(por_mes):
+    """Linha: receita total ao longo dos 12 meses."""
+    fig, ax = plt.subplots()
+    ax.plot(por_mes["mes"], por_mes["receita_total"],
+            marker="o", linewidth=2, color=AZUL, label="Receita total")
+    ax.set_title("Receita total por mês")
+    ax.set_xlabel("Mês")
+    ax.set_ylabel("Receita total (R$)")
+    ax.set_xticks(range(1, 13))
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig("outputs/graficos/receita_por_mes.png", dpi=150)
+    plt.close(fig)
+
+
+def grafico_top_produtos(top_produtos):
+    """Barras horizontais: os 5 produtos que mais faturaram."""
+    fig, ax = plt.subplots()
+    sns.barplot(data=top_produtos, y="produto", x="receita_total",
+                hue="produto", legend=False, palette=PALETA, ax=ax)
+    ax.set_title("Top 5 produtos por receita")
+    ax.set_xlabel("Receita total (R$)")
+    ax.set_ylabel("Produto")
+    fig.tight_layout()
+    fig.savefig("outputs/graficos/top_produtos.png", dpi=150)
+    plt.close(fig)
+
+
+def grafico_quantidade_vs_receita(df):
+    """Dispersão: quantidade x receita, com uma cor por categoria."""
+    fig, ax = plt.subplots()
+    sns.scatterplot(data=df, x="quantidade", y="receita_total",
+                    hue="categoria", palette=PALETA, ax=ax)
+    ax.set_title("Quantidade x receita por transação")
+    ax.set_xlabel("Quantidade vendida")
+    ax.set_ylabel("Receita total (R$)")
+    ax.legend(title="Categoria")
+    fig.tight_layout()
+    fig.savefig("outputs/graficos/quantidade_vs_receita.png", dpi=150)
+    plt.close(fig)
+
+
+def grafico_painel_resumo(df, metricas):
+    """Painel 2x2 juntando as três visões anteriores com a receita por região."""
+    por_mes = metricas["por_mes"]
+    top_produtos = metricas["top_produtos"]
+    por_regiao = metricas["por_regiao"]
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+
+    axes[0, 0].plot(por_mes["mes"], por_mes["receita_total"],
+                    marker="o", color=AZUL)
+    axes[0, 0].set_title("Receita por mês")
+    axes[0, 0].set_xlabel("Mês")
+    axes[0, 0].set_ylabel("Receita total (R$)")
+
+    axes[0, 1].barh(top_produtos["produto"], top_produtos["receita_total"],
+                    color=VERMELHO)
+    axes[0, 1].set_title("Top produtos")
+    axes[0, 1].set_xlabel("Receita total (R$)")
+    axes[0, 1].set_ylabel("Produto")
+
+    axes[1, 0].scatter(df["quantidade"], df["receita_total"],
+                       c=df["receita_total"], cmap="YlOrRd")
+    axes[1, 0].set_title("Quantidade x receita")
+    axes[1, 0].set_xlabel("Quantidade vendida")
+    axes[1, 0].set_ylabel("Receita total (R$)")
+
+    axes[1, 1].bar(por_regiao["regiao"], por_regiao["receita_total"],
+                   color=VERDE)
+    axes[1, 1].set_title("Receita por região")
+    axes[1, 1].set_xlabel("Região")
+    axes[1, 1].set_ylabel("Receita total (R$)")
+    axes[1, 1].tick_params(axis="x", rotation=20)
+
+    fig.suptitle("SalesInsight PY — painel de resumo", fontsize=16)
+    fig.tight_layout()
+    fig.savefig("outputs/graficos/painel_resumo.png", dpi=150)
+    plt.close(fig)
+
+
+def visualizar(df, metricas):
+    """
+    Gera as quatro figuras exigidas.
+
+    Recebe o DataFrame limpo como parâmetro de propósito: antes eu usava
+    uma variável global setada em outro método, e isso quebrava se
+    alguém chamasse visualizar() fora da ordem do main().
+    """
+    os.makedirs("outputs/graficos", exist_ok=True)
+    grafico_receita_por_mes(metricas["por_mes"])
+    grafico_top_produtos(metricas["top_produtos"])
+    grafico_quantidade_vs_receita(df)
+    grafico_painel_resumo(df, metricas)
+    print("\n4 figuras exportadas em outputs/graficos/.")
+
+
