@@ -254,3 +254,23 @@ def calcular_metricas(df):
     return metricas
 
 
+# ---------------------------------------------------------------- RF06
+def segmentar_clientes(df):
+    """Soma o gasto de cada cliente e classifica em Bronze, Prata ou Ouro."""
+    gasto = (df.groupby("cliente")["receita_total"]
+               .sum()
+               .reset_index()
+               .rename(columns={"receita_total": "total_gasto"}))
+
+    gasto["segmento"] = gasto["total_gasto"].apply(
+        lambda v: "Bronze" if v < 5000 else ("Prata" if v <= 15000 else "Ouro")
+    )
+    gasto = gasto.sort_values("total_gasto", ascending=False)
+
+    print("\n=== TOP 10 CLIENTES ===")
+    print(gasto.head(10).to_string(index=False))
+    print("\n=== DISTRIBUIÇÃO POR SEGMENTO ===")
+    print(gasto["segmento"].value_counts().to_string())
+    return gasto
+
+
